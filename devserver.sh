@@ -1,4 +1,14 @@
+#!/bin/bash
 # TODO configure email server
+
+replace_in_file() {
+	# $1 = username
+	# $2 = sed line
+	# $3 = filepath
+	sudo sh -c "sed '$2' < $3 > /tmp/replace.txt"
+	sudo chmod o+rw /tmp/replace.txt
+	sudo -u $1 cp /tmp/replace.txt $3
+}
 
 # ---------------------
 # INSTALL
@@ -78,8 +88,8 @@ install_gitlab() {
 	# Copy the example GitLab config
 	sudo -u git -H cp config/gitlab.yml.example config/gitlab.yml
 
-	# Update GitLab config file with our host
-	sudo -u git -H sed 's/host: localhost/host: $SERVER_HOST/g' < config/gitlab.yml > config/gitlab.yml
+	# Update GitLab config file with our hosts
+	replace_in_file git "s/host: localhost/host: $SERVER_HOST/g" /home/git/gitlab/config/gitlab.yml
 
 	# Make sure GitLab can write to the log/ and tmp/ directories
 	sudo chown -R git log/
@@ -152,7 +162,12 @@ install_gitlab_ci() {
 	cd gitlab-ci
 	sudo -u gitlab_ci -H git checkout 5-0-stable
 	sudo -u gitlab_ci -H cp config/application.yml.example config/application.yml
-	sudo -u gitlab_ci -H editor config/application.yml
+
+	# edit configuration file
+	replace_in_file gitlab_ci "s/host: localhost/host: $SERVER_HOST/g" /home/gitlab_ci/gitlab-ci/config/application.yml
+	replace_in_file gitlab_ci "s/port: 80/port: 1234/g" /home/gitlab_ci/gitlab-ci/config/application.yml
+	replace_in_file gitlab_ci "s/https:\/\/gitlab.example.com\//http:\/\/$SERVER_HOST/g" /home/gitlab_ci/gitlab-ci/config/application.yml
+
 
 	# Create socket and pid directories
 	sudo -u gitlab_ci -H mkdir -p tmp/sockets/
@@ -173,7 +188,7 @@ install_gitlab_ci() {
 	#sudo -u gitlab_ci -H editor config/unicorn.rb
 	
 	# change unicorn port to 9090 so it doesn't conflict with gitlab's
-	sudo -u gitlab_ci -H sed 's/127.0.0.1:8080/127.0.0.1:9090/g' < config/unicorn.rb > config/unicorn.rb
+	replace_in_file gitlab_ci 's/127.0.0.1:8080/127.0.0.1:9090/g' /home/gitlab_ci/gitlab-ci/config/unicorn.rb
 	
 	# Setup schedules
 	sudo -u gitlab_ci -H bundle exec whenever -w RAILS_ENV=production
@@ -193,18 +208,18 @@ install_nginx() {
 	sudo cp /home/git/gitlab/lib/support/nginx/gitlab /etc/nginx/sites-available/gitlab
 	sudo rm /etc/nginx/sites-enabled/default
 	sudo ln -s /etc/nginx/sites-available/gitlab /etc/nginx/sites-enabled/gitlab
-	sudo editor /etc/nginx/sites-available/gitlab
+	#sudo editor /etc/nginx/sites-available/gitlab
 	
 	# update hostname
-	sudo sed 's/YOUR_SERVER_FQDN/$SERVER_HOST/g' < /etc/nginx/sites-available/gitlab > /etc/nginx/sites-available/gitlab
+	replace_in_file root 's/YOUR_SERVER_FQDN/$SERVER_HOST/g' /etc/nginx/sites-available/gitlab
 	
 	# copies nginx gitlab-ci site
 	sudo cp /home/gitlab_ci/gitlab-ci/lib/support/nginx/gitlab_ci /etc/nginx/sites-available/gitlab_ci
 	sudo ln -s /etc/nginx/sites-available/gitlab_ci /etc/nginx/sites-enabled/gitlab_ci
 	
 	# update gitlab_ci hostname and port
-	sudo sed 's/listen 80/listen 1234/g' < /etc/nginx/sites-available/gitlab_ci > /etc/nginx/sites-available/gitlab_ci
-	sudo sed 's/ci.gitlab.org/$SERVER_HOST/g' < /etc/nginx/sites-available/gitlab_ci > /etc/nginx/sites-available/gitlab_ci
+	replace_in_file root 's/listen 80/listen 1234/g' /etc/nginx/sites-available/gitlab_ci
+	replace_in_file root 's/ci.gitlab.org/$SERVER_HOST/g' /etc/nginx/sites-available/gitlab_ci
 	
 	sudo service nginx restart
 	
@@ -217,13 +232,12 @@ install_nginx() {
 # ------------------------
 install_gitlab_ci_runner() {
 	sudo adduser --disabled-login --gecos 'GitLab CI Runner' gitlab_ci_runner
-	tlab_ci_runner
-	sudo -u gitlab_ci_runner -H cd /home/gitlab_ci_runner
+	cd /home/gitlab_ci_runner
 	sudo -u gitlab_ci_runner -H git clone https://gitlab.com/gitlab-org/gitlab-ci-runner.git
-	sudo -u gitlab_ci_runner -H cd gitlab-ci-runner
+	cd gitlab-ci-runner
 	
 	sudo bundle install --deployment
-	sudo bundle exec ./bin/setup
+	sudo bundle exec /home/gitlab_ci_runner/gitlab-ci-runner/bin/setup
 }
 
 # ------------------------
@@ -231,7 +245,7 @@ install_gitlab_ci_runner() {
 # ------------------------
 install_s3_backup_gitlab() {
 
-	sudo -u git -H "sed 's/# keep_time: 604800/  keep_time: 604800/g' < /home/git/gitlab/config/gitlab.yml > /tmp/gitlab.yml"
+	sudo -u git -H "sed 's/# keep_time: 604800/  keep_time: 604800/g' < /home/git/gitlab/config/gitlab.yml > /tmp/gitlab.yml; mv /tmp/gitlab.yml /home/git/gitlab/config/gitlab.yml"
 	#sudo -u git -H sh -c "sed 's/# upload:/  upload:/g' < /home/git/gitlab/config/gitlab.yml > /home/git/gitlab/config/gitlab.yml"
 	#sudo -u git -H sh -c "sed 's/#   connection:/    connection:/g' < /home/git/gitlab/config/gitlab.yml > /home/git/gitlab/config/gitlab.yml"
 	#sudo -u git -H sh -c "sed 's/#     provider:/      provider:/g' < /home/git/gitlab/config/gitlab.yml > /home/git/gitlab/config/gitlab.yml"
@@ -248,7 +262,7 @@ install_s3_backup_gitlab() {
 }
 
 
-sudo -u git -H cp /home/git/gitlab/config/gitlab.yml.example /home/git/gitlab/config/gitlab.yml
+#sudo -u git -H cp /home/git/gitlab/config/gitlab.yml.example /home/git/gitlab/config/gitlab.yml
 #install_s3_backup_gitlab
 
 #install_s3_backup() {
@@ -268,6 +282,13 @@ sudo -u git -H cp /home/git/gitlab/config/gitlab.yml.example /home/git/gitlab/co
 #	sudo echo "tar -zcvf /tmp/repositories-$DOW.tar /home/git/repositories/" | sudo tee -a /etc/cron.daily/s3backup.sh
 #	sudo echo "s3cmd put /tmp/repositories-$DOW.tar s3://$S3BUCKETNAME/" | sudo tee -a /etc/cron.daily/s3backup.sh	
 #}
+
+prompts
+#install_dependencies
+#install_gitlab
+#install_gitlab_ci
+#install_nginx
+install_gitlab_ci_runner
 
 
 echo "Dev server installation done."
