@@ -16,15 +16,16 @@ replace_in_file() {
 
 prompts() {
 	echo "Let me ask you some questions first."
-	echo -n "Server host name (like myserver.com):"
+	echo -n "Server host name (like myserver.com): "
 	read SERVER_HOST
-	echo -n "Amazon S3 bucket name, for backup:"
+	echo -n "Amazon S3 bucket name, for backup: "
 	read S3BUCKETNAME
-	echo -n "Amazon S3 access key:"
+	echo -n "Amazon S3 access key: "
 	read S3ACCESSKEY
-	echo -n "Amazon S3 secret key:"
+	echo -n "Amazon S3 secret key: "
 	read S3SECRETKEY
-	
+	echo -n "Amazon S3 region (like us-east-1): "
+	read S3REGION
 }
 
 # AJENTI
@@ -245,8 +246,8 @@ install_gitlab_ci_runner() {
 # ------------------------
 install_s3_backup_gitlab() {
 
-	replace_in_file git "s/# keep_time: 604800/  keep_time: 604800/g" /home/git/gitlab/config/gitlab.yml
-	replace_in_file git "s/# upload:/  upload:/g" /home/git/gitlab/config/gitlab.yml
+	replace_in_file git "s/# keep_time: 604800/keep_time: 604800/g" /home/git/gitlab/config/gitlab.yml
+	replace_in_file git "s/# upload:/upload:/g" /home/git/gitlab/config/gitlab.yml
 	replace_in_file git "s/#   connection:/    connection:/g" /home/git/gitlab/config/gitlab.yml
 	replace_in_file git "s/#     provider:/      provider:/g" /home/git/gitlab/config/gitlab.yml
 	replace_in_file git "s/#     region:/      region:/g" /home/git/gitlab/config/gitlab.yml
@@ -255,13 +256,16 @@ install_s3_backup_gitlab() {
 	replace_in_file git "s/#   remote_directory:/    remote_directory:/g" /home/git/gitlab/config/gitlab.yml
 	replace_in_file git "s/secret123/$S3SECRETKEY/g" /home/git/gitlab/config/gitlab.yml
 	replace_in_file git "s/my\.s3\.bucket/$S3BUCKETNAME/g" /home/git/gitlab/config/gitlab.yml
+	replace_in_file git "s/eu-west-1/$S3REGION/g" /home/git/gitlab/config/gitlab.yml
 	
 	
 	sudo chown -R git.git /home/git/gitlab/tmp
 	sudo -u root -H rm /etc/cron.daily/gitlab_backup.sh
 	sudo -u root -H touch /etc/cron.daily/gitlab_backup.sh
 	sudo echo "#!/bin/bash" | sudo tee -a /etc/cron.daily/gitlab_backup.sh
+	sudo echo "cd /home/git/gitlab" | sudo tee -a /etc/cron.daily/gitlab_backup.sh
 	sudo echo "sudo -u git -H bundle exec rake gitlab:backup:create RAILS_ENV=production" | sudo tee -a /etc/cron.daily/gitlab_backup.sh
+	sudo chmod +x /etc/cron.daily/gitlab_backup.sh
 }
 
 prompts
