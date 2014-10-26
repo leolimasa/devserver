@@ -245,50 +245,32 @@ install_gitlab_ci_runner() {
 # ------------------------
 install_s3_backup_gitlab() {
 
-	sudo -u git -H "sed 's/# keep_time: 604800/  keep_time: 604800/g' < /home/git/gitlab/config/gitlab.yml > /tmp/gitlab.yml; mv /tmp/gitlab.yml /home/git/gitlab/config/gitlab.yml"
-	#sudo -u git -H sh -c "sed 's/# upload:/  upload:/g' < /home/git/gitlab/config/gitlab.yml > /home/git/gitlab/config/gitlab.yml"
-	#sudo -u git -H sh -c "sed 's/#   connection:/    connection:/g' < /home/git/gitlab/config/gitlab.yml > /home/git/gitlab/config/gitlab.yml"
-	#sudo -u git -H sh -c "sed 's/#     provider:/      provider:/g' < /home/git/gitlab/config/gitlab.yml > /home/git/gitlab/config/gitlab.yml"
-	#sudo -u git -H sh -c "sed 's/#     region:/      region:/g' < /home/git/gitlab/config/gitlab.yml > /home/git/gitlab/config/gitlab.yml"
-	#sudo -u git -H sh -c "sed 's/#     aws_access_key_id: AKIAKIAKI/      aws_access_key_id: $S3ACCESSKEY/g' < /home/git/gitlab/config/gitlab.yml > /home/git/gitlab/config/gitlab.yml"
-	#sudo -u git -H sh -c "sed \"s/#     aws_secret_access_key: 'secret123'/      aws_secret_access_key: '$S3SECRETKEY'/g\" < /home/git/gitlab/config/gitlab.yml > /home/git/gitlab/config/gitlab.yml"
-	#sudo -u git -H sh -c "sed \"s/#   remote_directory: 'my.s3.bucket'/    remote_directory: '$S3BUCKETNAME'/g\" < /home/git/gitlab/config/gitlab.yml > /home/git/gitlab/config/gitlab.yml"
+	replace_in_file git "s/# keep_time: 604800/  keep_time: 604800/g" /home/git/gitlab/config/gitlab.yml
+	replace_in_file git "s/# upload:/  upload:/g" /home/git/gitlab/config/gitlab.yml
+	replace_in_file git "s/#   connection:/    connection:/g" /home/git/gitlab/config/gitlab.yml
+	replace_in_file git "s/#     provider:/      provider:/g" /home/git/gitlab/config/gitlab.yml
+	replace_in_file git "s/#     region:/      region:/g" /home/git/gitlab/config/gitlab.yml
+	replace_in_file git "s/#     aws_access_key_id: AKIAKIAKI/      aws_access_key_id: $S3ACCESSKEY/g" /home/git/gitlab/config/gitlab.yml
+	replace_in_file git "s/#     aws_secret_access_key:/      aws_secret_access_key:/g" /home/git/gitlab/config/gitlab.yml
+	replace_in_file git "s/#   remote_directory:/    remote_directory:/g" /home/git/gitlab/config/gitlab.yml
+	replace_in_file git "s/secret123/$S3SECRETKEY/g" /home/git/gitlab/config/gitlab.yml
+	replace_in_file git "s/my\.s3\.bucket/$S3BUCKETNAME/g" /home/git/gitlab/config/gitlab.yml
 	
-	#sudo chown -R git.git /home/git/gitlab/tmp
-	#sudo -u root -H rm /etc/cron.daily/gitlab_backup.sh
-	#sudo -u root -H touch /etc/cron.daily/gitlab_backup.sh
-	#sudo echo "#!/bin/bash" | sudo tee -a /etc/cron.daily/gitlab_backup.sh
-	#sudo echo "sudo -u git -H bundle exec rake gitlab:backup:create RAILS_ENV=production" | sudo tee -a /etc/cron.daily/gitlab_backup.sh
+	
+	sudo chown -R git.git /home/git/gitlab/tmp
+	sudo -u root -H rm /etc/cron.daily/gitlab_backup.sh
+	sudo -u root -H touch /etc/cron.daily/gitlab_backup.sh
+	sudo echo "#!/bin/bash" | sudo tee -a /etc/cron.daily/gitlab_backup.sh
+	sudo echo "sudo -u git -H bundle exec rake gitlab:backup:create RAILS_ENV=production" | sudo tee -a /etc/cron.daily/gitlab_backup.sh
 }
 
-
-#sudo -u git -H cp /home/git/gitlab/config/gitlab.yml.example /home/git/gitlab/config/gitlab.yml
-#install_s3_backup_gitlab
-
-#install_s3_backup() {
-#	sudo apt-get install python-dateutil
-#	wget http://downloads.sourceforge.net/project/s3tools/s3cmd/1.5.0-rc1/s3cmd-1.5.0-rc1.tar.gz
-#	sudo cp s3cmd-1.5.0-rc1.tar.gz /opt/.
-#	cd /opt
-#	sudo tar xvzf s3cmd-1.5.0-rc1.tar.gz
-#	sudo mv s3cmd-1.5.0-rc1 s3cmd
-#	sudo ln -s /opt/s3cmd/s3cmd /bin/s3cmd
-#	sudo -u root -H s3cmd --configure
-#	sudo -u root -H rm /etc/cron.daily/s3backup.sh
-#	sudo -u root -H touch /etc/cron.daily/s3backup.sh
-#	sudo echo "#!/bin/bash" | sudo tee -a /etc/cron.daily/s3backup.sh
-#	sudo echo "S3BUCKETNAME=PUT_YOUR_S3_BUCKET_NAME_HERE!!" | sudo tee -a /etc/cron.daily/s3backup.sh
-#	sudo echo "DOW=$(date +%u)" | sudo tee -a /etc/cron.daily/s3backup.sh
-#	sudo echo "tar -zcvf /tmp/repositories-$DOW.tar /home/git/repositories/" | sudo tee -a /etc/cron.daily/s3backup.sh
-#	sudo echo "s3cmd put /tmp/repositories-$DOW.tar s3://$S3BUCKETNAME/" | sudo tee -a /etc/cron.daily/s3backup.sh	
-#}
-
 prompts
-#install_dependencies
-#install_gitlab
-#install_gitlab_ci
-#install_nginx
+install_dependencies
+install_gitlab
+install_gitlab_ci
+install_nginx
 install_gitlab_ci_runner
+install_s3_backup_gitlab
 
 
 echo "Dev server installation done."
