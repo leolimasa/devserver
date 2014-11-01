@@ -10,6 +10,10 @@ replace_in_file() {
 	sudo -u $1 cp /tmp/replace.txt $3
 }
 
+append_to_file() {
+	sudo echo $1 | sudo tee -a $2
+}
+
 # ---------------------
 # INSTALL
 # ---------------------
@@ -26,6 +30,9 @@ prompts() {
 	read S3SECRETKEY
 	echo -n "Amazon S3 region (like us-east-1): "
 	read S3REGION
+	echo -n "An SMTP server to relay your mail (like smtp.gmail.com): "
+	read RELAYHOST
+	
 }
 
 # AJENTI
@@ -239,12 +246,16 @@ install_gitlab_ci_runner() {
 	
 	sudo bundle install --deployment
 	sudo bundle exec /home/gitlab_ci_runner/gitlab-ci-runner/bin/setup
+	sudo cp ./lib/support/init.d/gitlab_ci_runner /etc/init.d/gitlab-ci-runner
+	sudo chmod +x /etc/init.d/gitlab-ci-runner
+	sudo update-rc.d gitlab-ci-runner defaults 21
+	sudo service gitlab-ci-runner start
 }
 
 # ------------------------
 # S3 BACKUP
 # ------------------------
-install_s3_backup_gitlab() {
+configure_s3_backup_gitlab() {
 
 	replace_in_file git "s/# keep_time: 604800/keep_time: 604800/g" /home/git/gitlab/config/gitlab.yml
 	replace_in_file git "s/# upload:/upload:/g" /home/git/gitlab/config/gitlab.yml
@@ -268,13 +279,38 @@ install_s3_backup_gitlab() {
 	sudo chmod +x /etc/cron.daily/gitlab_backup.sh
 }
 
+# ------------------------
+# EMAIL RELAY
+# ------------------------
+configure_email_relay() {
+	EMAILCFG=/home/git/gitlab/config/initializers/smtp_settings.rb
+	replace_in_file git "s/:sendmail/:smtp/g" /home/git/gitlab/config/environments/production.rb
+	sudo -u git rm $EMAILCFG
+	sudo -u git touch $EMAILCFG
+	append_to_file 'if Rails.env.production?' $EMAILCFG
+	append_to_file '  Gitlab::Application.config.action_mailer.delivery_method = :smtp' $EMAILCFG
+	append_to_file '' $EMAILCFG
+	append_to_file '  ActionMailer::Base.smtp_settings = {' $EMAILCFG
+    append_to_file '    address: "email.server.com",' $EMAILCFG
+    append_to_file '    port: 456,' $EMAILCFG
+    append_to_file '    user_name: "smtp",' $EMAILCFG
+    append_to_file '    password: "123456",' $EMAILCFG
+    append_to_file '    domain: "gitlab.company.com",' $EMAILCFG
+    append_to_file '    authentication: :login,' $EMAILCFG
+    append_to_file '    enable_starttls_auto: true' $EMAILCFG
+	append_to_file '  }' $EMAILCFG
+	append_to_file 'end'
+  }
+}
+
 prompts
+install_ajenti
 install_dependencies
 install_gitlab
 install_gitlab_ci
 install_nginx
 install_gitlab_ci_runner
-install_s3_backup_gitlab
+configure_s3_backup_gitlab
 
 
 echo "Dev server installation done."
