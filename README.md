@@ -8,4 +8,4 @@ CentOS
 
 Copy and paste:
 
-wget https://rawgit.com/submain/devserver/master/devserver-centos.sh --no-check-certificate && sh devserver-centos.sh
+wget https://cdn.jsdelivr.net/gh/submain/devserver/devserver-centos.sh --no-check-certificate && sh devserver-centos.sh
